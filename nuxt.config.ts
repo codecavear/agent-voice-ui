@@ -9,11 +9,16 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Server-side only
     elevenLabsApiKey: process.env.ELEVENLABS_API_KEY || '',
+    elevenLabsVoiceId: process.env.ELEVENLABS_VOICE_ID || 'pNInz6obpgDQGcFmaJgB', // Default: Adam
     openaiApiKey: process.env.OPENAI_API_KEY || '',
-    openclawWebhook: process.env.OPENCLAW_WEBHOOK || '',
+    webhookUrl: process.env.WEBHOOK_URL || '',
+    webhookAuthToken: process.env.WEBHOOK_AUTH_TOKEN || '',
+    whisperLanguage: process.env.WHISPER_LANGUAGE || 'es',
     // Public (client)
     public: {
-      appName: 'Docta'
+      appName: process.env.APP_NAME || 'Voice Assistant',
+      appDescription: process.env.APP_DESCRIPTION || 'AI Voice Chat',
+      primaryColor: process.env.PRIMARY_COLOR || 'emerald'
     }
   }
 })

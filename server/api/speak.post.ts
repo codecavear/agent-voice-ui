@@ -8,8 +8,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'No text provided' })
   }
   
-  // ElevenLabs TTS
-  const voiceId = 'pNInz6obpgDQGcFmaJgB' // Adam voice (default)
+  if (!config.elevenLabsApiKey) {
+    throw createError({ statusCode: 500, message: 'ElevenLabs API key not configured' })
+  }
+  
+  const voiceId = config.elevenLabsVoiceId
   
   const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
     method: 'POST',
@@ -29,7 +32,8 @@ export default defineEventHandler(async (event) => {
   
   if (!response.ok) {
     const err = await response.text()
-    throw createError({ statusCode: 500, message: `ElevenLabs error: ${err}` })
+    console.error('ElevenLabs error:', err)
+    throw createError({ statusCode: 500, message: `TTS error: ${response.status}` })
   }
   
   // Return audio as base64 data URL

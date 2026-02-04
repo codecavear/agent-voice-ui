@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const config = useRuntimeConfig()
+
 const isRecording = ref(false)
 const isProcessing = ref(false)
 const isPlaying = ref(false)
@@ -48,22 +50,22 @@ async function processAudio() {
     const formData = new FormData()
     formData.append('audio', audioBlob, 'recording.webm')
     
-    const transcribeRes = await $fetch('/api/transcribe', {
+    const transcribeRes = await $fetch<{ text: string }>('/api/transcribe', {
       method: 'POST',
       body: formData
     })
     transcript.value = transcribeRes.text
     
-    // 2. Get response from Docta (OpenClaw)
-    const chatRes = await $fetch('/api/chat', {
+    // 2. Get response from AI
+    const chatRes = await $fetch<{ response: string }>('/api/chat', {
       method: 'POST',
       body: { message: transcript.value }
     })
     response.value = chatRes.response
     
-    // 3. Speak response with ElevenLabs
+    // 3. Speak response
     isPlaying.value = true
-    const audioRes = await $fetch('/api/speak', {
+    const audioRes = await $fetch<{ audioUrl: string }>('/api/speak', {
       method: 'POST',
       body: { text: response.value }
     })
@@ -74,11 +76,17 @@ async function processAudio() {
     await audio.play()
     
   } catch (e: any) {
-    error.value = e.message || 'Something went wrong'
+    error.value = e.data?.message || e.message || 'Something went wrong'
+    isPlaying.value = false
   } finally {
     isProcessing.value = false
   }
 }
+
+useSeoMeta({
+  title: config.public.appName,
+  description: config.public.appDescription
+})
 </script>
 
 <template>
@@ -86,8 +94,8 @@ async function processAudio() {
     <div class="max-w-md w-full space-y-8">
       <!-- Header -->
       <div class="text-center">
-        <h1 class="text-4xl font-bold text-primary-400">Docta</h1>
-        <p class="text-gray-400 mt-2">Voice Assistant</p>
+        <h1 class="text-4xl font-bold text-primary-400">{{ config.public.appName }}</h1>
+        <p class="text-gray-400 mt-2">{{ config.public.appDescription }}</p>
       </div>
       
       <!-- Voice Button -->
@@ -99,10 +107,10 @@ async function processAudio() {
           @touchstart.prevent="startRecording"
           @touchend.prevent="stopRecording"
           :disabled="isProcessing || isPlaying"
-          class="relative w-32 h-32 rounded-full transition-all duration-300"
+          class="relative w-32 h-32 rounded-full transition-all duration-300 flex items-center justify-center"
           :class="{
             'bg-red-500 scale-110 animate-pulse': isRecording,
-            'bg-primary-500 hover:bg-primary-400': !isRecording && !isProcessing,
+            'bg-primary-500 hover:bg-primary-400 hover:scale-105': !isRecording && !isProcessing && !isPlaying,
             'bg-gray-600 cursor-wait': isProcessing || isPlaying
           }"
         >
@@ -126,12 +134,19 @@ async function processAudio() {
       
       <!-- Response -->
       <div v-if="response" class="bg-primary-900/30 rounded-lg p-4 border border-primary-500/30">
-        <p class="text-xs text-primary-400 mb-1">Docta:</p>
+        <p class="text-xs text-primary-400 mb-1">{{ config.public.appName }}:</p>
         <p class="text-gray-200">{{ response }}</p>
       </div>
       
       <!-- Error -->
-      <UAlert v-if="error" color="red" :title="error" />
+      <UAlert v-if="error" color="red" :title="error" icon="i-lucide-alert-circle" />
+    </div>
+    
+    <!-- Footer -->
+    <div class="absolute bottom-4 text-center text-gray-600 text-xs">
+      <a href="https://github.com/codecavear/agent-voice-ui" target="_blank" class="hover:text-gray-400">
+        agent-voice-ui
+      </a>
     </div>
   </div>
 </template>

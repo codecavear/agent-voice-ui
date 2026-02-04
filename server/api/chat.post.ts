@@ -8,33 +8,52 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'No message provided' })
   }
   
-  // Call OpenClaw gateway webhook
-  // For now, simple echo - will connect to actual gateway
-  const webhookUrl = config.openclawWebhook || 'http://localhost:18789/api/chat'
+  const webhookUrl = config.webhookUrl
+  
+  if (!webhookUrl) {
+    // No webhook configured - return helpful message
+    return { 
+      response: `Webhook not configured. Set WEBHOOK_URL environment variable to connect your AI backend.`
+    }
+  }
   
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    
+    // Add auth token if configured
+    if (config.webhookAuthToken) {
+      headers['Authorization'] = `Bearer ${config.webhookAuthToken}`
+    }
+    
     const response = await fetch(webhookUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ 
         message: body.message,
-        sessionKey: 'voice-chat'
+        timestamp: new Date().toISOString()
       })
     })
     
     if (!response.ok) {
-      // Fallback response if webhook not configured
+      const errorText = await response.text()
+      console.error('Webhook error:', errorText)
       return { 
-        response: `Recibí tu mensaje: "${body.message}". El webhook de OpenClaw no está configurado aún.`
+        response: `Error connecting to backend. Status: ${response.status}`
       }
     }
     
     const result = await response.json()
-    return { response: result.response || result.message || 'Sin respuesta' }
-  } catch (e) {
-    // Fallback for dev
+    
+    // Support multiple response formats
+    const responseText = result.response || result.message || result.text || result.reply || JSON.stringify(result)
+    
+    return { response: responseText }
+  } catch (e: any) {
+    console.error('Webhook fetch error:', e.message)
     return { 
-      response: `Hola! Escuché: "${body.message}". Estoy en modo desarrollo.`
+      response: `Could not reach backend: ${e.message}`
     }
   }
 })

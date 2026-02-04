@@ -3,6 +3,10 @@ import { createError } from 'h3'
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   
+  if (!config.openaiApiKey) {
+    throw createError({ statusCode: 500, message: 'OpenAI API key not configured' })
+  }
+  
   // Get audio from form data
   const formData = await readMultipartFormData(event)
   const audioFile = formData?.find(f => f.name === 'audio')
@@ -11,11 +15,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'No audio file provided' })
   }
   
-  // Use OpenAI Whisper API (can swap for local whisper.cpp later)
+  // Use OpenAI Whisper API
   const whisperFormData = new FormData()
   whisperFormData.append('file', new Blob([audioFile.data], { type: 'audio/webm' }), 'audio.webm')
   whisperFormData.append('model', 'whisper-1')
-  whisperFormData.append('language', 'es')
+  
+  // Language is configurable
+  if (config.whisperLanguage) {
+    whisperFormData.append('language', config.whisperLanguage)
+  }
   
   const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
@@ -27,7 +35,8 @@ export default defineEventHandler(async (event) => {
   
   if (!response.ok) {
     const err = await response.text()
-    throw createError({ statusCode: 500, message: `Whisper error: ${err}` })
+    console.error('Whisper error:', err)
+    throw createError({ statusCode: 500, message: `Transcription error: ${response.status}` })
   }
   
   const result = await response.json()
